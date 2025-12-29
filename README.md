@@ -1,116 +1,118 @@
 # LegacyLift - Enterprise AI Legacy Code Modernizer
 
-LegacyLift is an AI-powered architect designed to ingest, analyze, and modernize legacy codebases. Leveraging **Google Gemini 2.5 Flash** with massive context caching (1M+ tokens), it can understand entire repositories and automatically generate Pull Requests to refactor, fix security vulnerabilities, or migrate technologies.
+LegacyLift is an autonomous AI Architect designed to ingest, analyze, and modernize legacy codebases at scale. Leveraging **Google Gemini 2.5 Flash** with massive context caching (1M+ tokens), it understands entire repositories to automatically generate Pull Requests for refactoring, security patches, and technology migrations.
 
-![LegacyLift Banner](https://img.shields.io/badge/Status-Beta-blue?style=for-the-badge) ![Gemini](https://img.shields.io/badge/Powered%20By-Gemini%202.5-purple?style=for-the-badge)
-
----
-
-## � Features
-
-- **Context Caching**: Ingests massive repositories (Zip upload or GitHub clone) into Gemini's "Smart Cache" for deep architectural understanding.
-- **Streaming Refactoring**: Real-time code transformation suggestions streamed directly to the dashboard.
-- **Auto-PR Agent**: Automatically creates a branch, commits changes, and opens a Pull Request on GitHub with the proposed fixes.
-- **Dual Ingestion Mode**:
-    - **Zip Archive**: Upload local legacy projects (encrypted & stored in Firebase).
-    - **GitHub Repo**: Direct integration to clone and analyze private/public repositories.
-- **Secure Pipeline**: End-to-end encryption using Firebase Auth & Cloud Storage.
+![LegacyLift Banner](https://img.shields.io/badge/Status-Beta-blue?style=for-the-badge) ![Gemini](https://img.shields.io/badge/Powered%20By-Gemini%202.5-purple?style=for-the-badge) 
 
 ---
 
-## 🏗 Architecture
+## 🚀 Key Features
 
-**Conceptual Flow:**
-1.  **Ingestion**: User uploads a Zip or selects a GitHub Repo.
-2.  **Processing**: Backend extracts code, identifying key files (JS, PY, Java, SQL, etc.).
-3.  **Tokenization**: Content is sent to Google Gemini's **Context Cache** (RAM fallback for small repos).
-4.  **Reasoning**: User queries (e.g., "Migrate to TypeScript") are processed against the cached context.
-5.  **Execution**: AI streams the solution or executes a GitHub Action to raise a PR.
+### 🧠 Deep Context Awareness
+- **Massive Ingestion**: Supports ingesting complete repositories via Zip upload or direct GitHub cloning.
+- **Smart Caching**: Intelligently switches between RAM (for small files) and Google GenAI Context Cache (for large repos >30k tokens) to optimize speed and cost.
+- **Polyglot Support**: Native understanding of Java, Python, PHP, JavaScript, TypeScript, Go, C++, and SQL.
+
+### ⚡ Autonomous Refactoring Agent
+- **Streaming Architect**: Real-time logic transformation suggestions streamed directly to the frontend.
+- **Auto-PR Agent**: Automatically creates a branch, pushes code, and opens a Pull Request on GitHub with a comprehensive description.
+- **Audit Trail**: Every refactor and PR is logged in the `Mission Control` dashboard for compliance and tracking.
+
+### 🕹 Mission Control Dashboard
+- **Activity Feed**: Live feed of all refactoring jobs and pull requests across the team.
+- **Real-time Stats**: Track total refactors, PRs created, and system operational status.
+- **Multi-Source Management**: Switch seamlessly between local archives and remote GitHub repositories.
 
 ---
 
-## 🛠 Tech Stack
+## 🏗 System Architecture
+
+The system follows a transparent **Ingest -> Reason -> Execute** pipeline:
+
+1.  **Ingestion Layer**:
+    -   **Local**: Encrypted Zip uploads to Firebase Cloud Storage.
+    -   **Remote**: PyGithub integration to clone public/private repositories.
+2.  **Processing Layer**:
+    -   Backend recursively flattens the codebase.
+    -   Content is tokenized and loaded into **Gemini 2.5 Flash**.
+3.  **Application Layer (Next.js)**:
+    -   User issues natural language commands (e.g., *"Convert all raw SQL queries in user.php to PDO prepared statements"*).
+4.  **Execution Layer**:
+    -   **Refactor**: AI streams the diff/solution back to the UI.
+    -   **Action**: AI interacts with the GitHub API to commit changes and raise a PR.
+
+---
+
+## 🛠 Technology Stack
 
 ### Client (Frontend)
--   **Framework**: Next.js 16 (React 19)
--   **Styling**: Tailwind CSS v4
--   **Auth**: Firebase Authentication (Google & GitHub Providers)
--   **UI**: Lucide React, Glassmorphism Design
--   **State**: React Hooks & Context
+-   **Framework**: Next.js 16 (App Router, React 19)
+-   **Styling**: Tailwind CSS v4, Lucide React (Icons)
+-   **Auth**: Firebase Authentication (Google & GitHub OOP)
+-   **State**: React Hooks & Suspense
+-   **Deployment**: Vercel (Recommended)
 
 ### Server (Backend)
 -   **Runtime**: Python 3.10+
--   **Framework**: Flask
+-   **Framework**: Flask, Gunicorn (Production WSGI)
 -   **AI Engine**: Google GenAI SDK (Gemini 2.5 Flash)
--   **Database**: Firebase Firestore (Logs, Audit Trails)
+-   **Database**: Firebase Firestore (NoSQL for Logs/Stats)
 -   **Storage**: Firebase Cloud Storage (Archives)
--   **Integration**: PyGithub (GitHub API)
+-   **Integration**: PyGithub, Dotenv
 
 ---
 
-## ⚙️ Installation & Setup
+## ⚙️ Installation & Configuration
 
 ### Prerequisites
--   Node.js (v18+) & npm
--   Python (v3.10+)
+-   Node.js v18+ & npm
+-   Python v3.10+
 -   Firebase Project (Auth, Firestore, Storage enabled)
--   Google Cloud Project with Gemini API enabled
+-   Google Cloud Project (Gemini API enabled)
 -   GitHub OAuth App
 
-### 1. Clone Repository
+### 1. Repository Setup
 ```bash
 git clone https://github.com/yourusername/LegacyLift.git
 cd LegacyLift
 ```
 
-### 2. Backend Setup
-Navigate to the server directory:
+### 2. Backend (Flask)
 ```bash
 cd legacylift/server
-```
 
-Create a virtual environment and install dependencies:
-```bash
+# Create Virtual Env
 python -m venv venv
-# Windows
-.\venv\Scripts\activate
-# Mac/Linux
-source venv/bin/activate
+# Windows: .\venv\Scripts\activate
+# Mac/Linux: source venv/bin/activate
 
+# Install Dependencies
 pip install -r requirements.txt
 ```
 
-**Configuration (.env):**
-Create a `.env` file in `server/`:
+**Configuration**: Create `legacylift/server/.env`:
 ```env
 FLASK_SECRET=your_super_secret_key
 GEMINI_API_KEY=your_google_gemini_key
-GITHUB_CLIENT_ID=your_github_app_id
-GITHUB_CLIENT_SECRET=your_github_app_secret
+GITHUB_CLIENT_ID=your_github_client_id
+GITHUB_CLIENT_SECRET=your_github_client_secret
 ```
 
-**Firebase Admin SDK:**
-Download your service account JSON from Firebase Console -> Project Settings -> Service Accounts. Save it as `serviceAccountKey.json` in the `server/` directory.
+**Firebase**: Place your `serviceAccountKey.json` from Firebase Console in `legacylift/server/`.
 
-**Run Server:**
+**Run Server**:
 ```bash
 python app.py
+# Production: gunicorn app:app
 ```
-*Server runs on `http://localhost:5000`*
 
-### 3. Frontend Setup
-Navigate to the client directory:
+### 3. Client (Next.js)
 ```bash
 cd ../client
-```
-
-Install dependencies:
-```bash
 npm install
 ```
 
-**Configuration (.env.local):**
-Create `.env.local` in `client/` with your Firebase public config:
+**Configuration**: Create `legacylift/client/.env.local`:
 ```env
 NEXT_PUBLIC_FIREBASE_API_KEY=...
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=...
@@ -120,64 +122,46 @@ NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
 NEXT_PUBLIC_FIREBASE_APP_ID=...
 ```
 
-**Run Client:**
+**Environment Config**: The app automatically switches API URLs based on environment:
+-   **Development**: `http://localhost:5000`
+-   **Production**: `https://legacylift-backend.onrender.com` (Configurable in `lib/config.ts`)
+
+**Run Client**:
 ```bash
 npm run dev
 ```
-*Client runs on `http://localhost:3000`*
 
 ---
 
 ## 📡 API Documentation
 
-### 1. Upload Archive
-**POST** `/upload`
-Uploads a zip file, extracts content, and initializes Gemini Cache.
--   **Headers**: `Authorization: Bearer <firebase_token>`
--   **Body**: `multipart/form-data` -> `file: <zip_file>`
--   **Response**: `{ "status": "success", "cache_name": "...", "token_count": 12345 }`
+### Auth & User
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| **GET** | `/dashboard` | Returns user stats (refactors, PRs) and activity feed. |
+| **GET** | `/login/github` | Initiates GitHub OAuth flow. |
 
-### 2. Ingest GitHub Repo
-**POST** `/github/ingest`
-Clones a GitHub repo and initializes Gemini Cache.
--   **Headers**: `Authorization: Bearer <firebase_token>`
--   **Body**: `{ "token": "<gh_oauth_token>", "repo_name": "user/repo" }`
--   **Response**: `{ "status": "success", "cache_name": "...", "token_count": 12345 }`
+### Ingestion
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| **POST** | `/upload` | Uploads .zip, extracts code, and creates Gemini Cache. |
+| **POST** | `/github/ingest` | Clones a GitHub repo and creates Gemini Cache. |
+| **POST** | `/github/repos` | Lists recent repositories for the authenticated user. |
 
-### 3. Stream Refactoring
-**POST** `/refactor`
-Streams AI-generated code modernization suggestions.
--   **Headers**: `Authorization: Bearer <firebase_token>`
--   **Body**: `{ "cache_name": "...", "query": "Refactor login.php to use PDO" }`
--   **Response**: Server-Sent Events (SSE) stream.
+### AI Actions
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| **POST** | `/refactor` | Streams architectural changes based on natural language query. |
+| **POST** | `/github/create_pr` | Generates code, creates a branch, commits, and opens a PR. |
 
-### 4. Create Pull Request
-**POST** `/github/create_pr`
-Generates a fix, creates a branch, and opens a PR.
--   **Headers**: `Authorization: Bearer <firebase_token>`
--   **Body**: `{ "token": "...", "repo_name": "...", "cache_name": "...", "query": "Fix SQL Injection" }`
--   **Response**: `{ "status": "success", "pr_url": "https://github.com/..." }`
-
-### 5. List Repos
-**POST** `/github/repos`
-Lists the user's recent GitHub repositories.
--   **Body**: `{ "token": "<gh_oauth_token>" }`
--   **Response**: JSON array of repos.
+**Security Note**: All protected endpoints require `Authorization: Bearer <firebase_id_token>` header.
 
 ---
-
-## 🤝 Contributing
-
-1.  Fork the repository.
-2.  Create your feature branch (`git checkout -b feature/AmazingFeature`).
-3.  Commit your changes (`git commit -m 'Add some AmazingFeature'`).
-4.  Push to the branch (`git push origin feature/AmazingFeature`).
-5.  Open a Pull Request.
-
----
-
 
 ## 👥 Team Khasta Kochuri
-- **Sriz Debnath** - AI System & Automation
-- **Shilajit Khan** - Backend Engineering
-- **Subhajit Patra** - Frontend Engineering
+-   **Sriz Debnath** - AI System & Automation
+-   **Shilajit Khan** - Backend Engineering
+-   **Subhajit Patra** - Frontend Engineering
+
+---
+
