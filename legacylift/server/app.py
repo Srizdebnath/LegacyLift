@@ -6,6 +6,7 @@ import tempfile
 import time
 import requests
 import uuid
+import datetime
 from flask import Flask, request, Response, jsonify, redirect
 from flask_cors import CORS
 from google import genai
@@ -13,32 +14,62 @@ from google.genai import types
 from dotenv import load_dotenv
 from github import Github, GithubException
 
+# FIREBASE ADMIN SDK
+import firebase_admin
+from firebase_admin import credentials, firestore, storage, auth
+
 # Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("FLASK_SECRET", "dev_secret")
+app.secret_key = os.environ.get("FLASK_SECRET", "super_secret_dev_key")
 
 # Enable CORS (Allow localhost:3000 to send credentials/headers)
 CORS(app, supports_credentials=True) 
 
-# --- CONFIGURATION ---
+# --- FIREBASE CONFIGURATION ---
+# 1. Load the Service Account Key
+if not os.path.exists("serviceAccountKey.json"):
+    print("WARNING: serviceAccountKey.json not found! Firebase features will crash.")
+else:
+    cred = credentials.Certificate("serviceAccountKey.json")
+    firebase_admin.initialize_app(cred, {
+        # REPLACE THIS WITH YOUR ACTUAL BUCKET NAME FROM FIREBASE CONSOLE -> STORAGE
+        'storageBucket': 'legacylift-597a3.firebasestorage.app' 
+    })
+
+db = firestore.client()
+bucket = storage.bucket()
+
+# --- GEMINI & GITHUB CONFIG ---
 GEMINI_KEY = os.environ.get("GEMINI_API_KEY")
 GH_CLIENT_ID = os.environ.get("GITHUB_CLIENT_ID")
 GH_CLIENT_SECRET = os.environ.get("GITHUB_CLIENT_SECRET")
 
-# Initialize Gemini Client
+# Use Gemini 2.5 Flash for speed/cost efficiency
+MODEL_ID = "gemini-2.5-flash" 
 client = genai.Client(api_key=GEMINI_KEY)
 
-# MODEL: Use 'gemini-2.5-flash' for speed/rate-limits. 
-# Fallback to 'gemini-1.5-flash-002' if 2.5 isn't available in your region.
-MODEL_ID = "gemini-2.5-flash" 
-
-# --- IN-MEMORY STORAGE (Hackathon "Database") ---
-# Stores code content for small repos that don't fit in Google's Cache (>32k tokens)
+# RAM Storage for small repos (fallback for Google Cache)
 fallback_memory = {}
 
-# --- HELPERS ---
+# --- HELPER FUNCTIONS ---
+
+def verify_firebase_token(request):
+    """
+    Middleware to protect routes.
+    Expects header: 'Authorization: Bearer <firebase_id_token>'
+    """
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return None
+    try:
+        token = auth_header.split(" ")[1]
+        decoded_token = auth.verify_id_token(token)
+        return decoded_token # Returns dict with 'uid', 'email', etc.
+    except Exception as e:
+        print(f"Auth Verification Failed: {e}")
+        return None
 
 def extract_code_from_zip(zip_path):
     """Flattens a zip file into a single text string."""
@@ -48,55 +79,47 @@ def extract_code_from_zip(zip_path):
             zip_ref.extractall(temp_dir)
             for filepath in glob.glob(f'{temp_dir}/**/*', recursive=True):
                 if os.path.isfile(filepath):
-                    # Filter: Only read code files
-                    if filepath.endswith(('.java', '.php', '.py', '.js', '.ts', '.css', '.html', '.sql', '.cob', '.c', '.cpp', '.h')):
+                    if filepath.endswith(('.java', '.php', '.py', '.js', '.ts', '.css', '.html', '.sql', '.go', '.c', '.cpp')):
                         try:
                             with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
                                 rel_path = os.path.relpath(filepath, temp_dir)
                                 code_content += f"\n--- START FILE: {rel_path} ---\n"
                                 code_content += f.read()
                                 code_content += f"\n--- END FILE: {rel_path} ---\n"
-                        except Exception:
-                            pass
+                        except: pass
     return code_content
 
 def clean_gemini_json(text):
-    """Sanitizes Gemini output to ensure valid JSON."""
+    """Sanitizes AI output to ensure valid JSON."""
     text = text.strip()
-    # Remove markdown fencing if present
     if text.startswith("```"):
         lines = text.split("\n")
-        # Find start and end of code block
-        if lines[0].startswith("```"):
-            lines = lines[1:]
-        if lines[-1].startswith("```"):
-            lines = lines[:-1]
+        # Strip first line (```json) and last line (```)
+        if lines[0].startswith("```"): lines = lines[1:]
+        if lines[-1].startswith("```"): lines = lines[:-1]
         text = "\n".join(lines)
     return json.loads(text)
 
-def create_context_cache_or_ram(content, display_name):
+def create_smart_cache(content, display_name, user_id="anon"):
     """
-    Decides whether to use Google Context Cache (for big files) 
-    or RAM (for small files) to avoid 400 errors.
+    Intelligent Caching:
+    - Small Files -> RAM (Free, Fast)
+    - Big Files -> Google Context Cache (Scalable)
     """
-    # Rough token count (1 token ~= 4 chars)
     est_tokens = len(content) // 4
     
-    # Google Cache requires ~32,000 tokens minimum
+    # 30k limit is roughly where Google Cache minimum starts
     if est_tokens < 30000:
-        print(f"Repo too small ({est_tokens} tokens). Using RAM Fallback.")
         fake_id = str(uuid.uuid4())
         fallback_memory[fake_id] = content
         return {"cache_name": fake_id, "token_count": est_tokens, "mode": "ram"}
     
-    # Use Real Google Cache
     try:
-        print(f"Creating Google Cache for {display_name}...")
         cache = client.caches.create(
             model=MODEL_ID,
             config=types.CreateCachedContentConfig(
-                display_name=display_name,
-                system_instruction="You are a Senior Software Architect. You have access to the entire codebase.",
+                display_name=f"{user_id}_{display_name}"[:40], # Limit name length
+                system_instruction="You are a Senior Software Architect. Analyze code deeply.",
                 contents=[content],
                 ttl="3600s"
             )
@@ -107,165 +130,128 @@ def create_context_cache_or_ram(content, display_name):
             "mode": "google_cache"
         }
     except Exception as e:
-        print(f"Cache creation failed: {e}. Falling back to RAM.")
+        print(f"Cache Error: {e}")
+        # Fallback to RAM if cache fails
         fake_id = str(uuid.uuid4())
         fallback_memory[fake_id] = content
         return {"cache_name": fake_id, "token_count": est_tokens, "mode": "fallback_ram"}
 
-# --- ROUTES: AUTHENTICATION ---
+# --- ROUTES: UPLOAD & INGEST ---
 
-@app.route('/login/github')
-def login_github():
-    """Redirects user to GitHub for authorization."""
-    return redirect(f"https://github.com/login/oauth/authorize?client_id={GH_CLIENT_ID}&scope=repo")
+@app.route('/upload', methods=['POST'])
+def upload_repo():
+    # 1. Verify User
+    user = verify_firebase_token(request)
+    if not user: return jsonify({"error": "Unauthorized"}), 401
 
-@app.route('/github/callback')
-def github_callback():
-    """Handles the callback from GitHub."""
-    code = request.args.get('code')
+    if 'file' not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
     
-    # Exchange code for token
-    token_resp = requests.post(
-        "https://github.com/login/oauth/access_token",
-        headers={"Accept": "application/json"},
-        data={
-            "client_id": GH_CLIENT_ID,
-            "client_secret": GH_CLIENT_SECRET,
-            "code": code
-        }
-    )
-    token_data = token_resp.json()
-    access_token = token_data.get("access_token")
+    file = request.files['file']
     
-    # Redirect to Frontend with token (Simple Hackathon approach)
-    # Note: In production, store this in a secure HttpOnly cookie
-    return redirect(f"http://localhost:3000?gh_token={access_token}")
-
-# --- ROUTES: REPO MANAGEMENT ---
-
-@app.route('/github/repos', methods=['POST'])
-def list_repos():
-    """Lists the user's recent repositories."""
-    token = request.json.get('token')
-    if not token: return jsonify({"error": "Unauthorized"}), 401
-    
-    g = Github(token)
-    user = g.get_user()
-    
-    # Fetch last 15 pushed repos
-    repos = []
+    # 2. Upload to Firebase Cloud Storage (Permanent Archive)
     try:
-        for repo in user.get_repos(sort="pushed", direction="desc"):
-            if len(repos) >= 15: break
-            repos.append({
-                "id": repo.id,
-                "name": repo.full_name,
-                "private": repo.private,
-                "pushed_at": str(repo.pushed_at)
-            })
-        return jsonify(repos)
-    except GithubException as e:
-        return jsonify({"error": str(e)}), 500
+        filename = f"users/{user['uid']}/uploads/{int(time.time())}_{file.filename}"
+        blob = bucket.blob(filename)
+        blob.upload_from_file(file.stream, content_type='application/zip')
+        
+        # Rewind file stream to read it again for processing
+        file.stream.seek(0)
+    except Exception as e:
+        print(f"Storage Error: {e}") 
+        # We continue even if storage fails for the hackathon demo
+    
+    # 3. Process Logic
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as temp_zip:
+        file.save(temp_zip.name)
+        full_code = extract_code_from_zip(temp_zip.name)
+        
+    result = create_smart_cache(full_code, "Zip_Upload", user['uid'])
+    return jsonify({"status": "success", **result})
 
 @app.route('/github/ingest', methods=['POST'])
 def ingest_github():
-    """Downloads a GitHub repo and loads it into context."""
+    # 1. Verify User
+    user = verify_firebase_token(request)
+    if not user: return jsonify({"error": "Unauthorized"}), 401
+
     data = request.json
-    token = data.get('token')
+    gh_token = data.get('token')
     repo_name = data.get('repo_name')
     
-    g = Github(token)
+    g = Github(gh_token)
     try:
         repo = g.get_repo(repo_name)
     except:
         return jsonify({"error": "Repo not found"}), 404
     
-    # Recursive fetch (Hackathon limit: max 50 files to be fast)
+    # Recursive fetch (Limit to 60 files for speed)
     full_code = ""
     file_count = 0
     contents = repo.get_contents("")
     queue = []
     
-    if isinstance(contents, list):
-        queue.extend(contents)
-    else:
-        queue.append(contents)
+    if isinstance(contents, list): queue.extend(contents)
+    else: queue.append(contents)
         
     while queue and file_count < 60:
         file_content = queue.pop(0)
         if file_content.type == "dir":
-            try:
-                queue.extend(repo.get_contents(file_content.path))
+            try: queue.extend(repo.get_contents(file_content.path))
             except: pass
         else:
-            # Only ingest textual code files
             if file_content.path.endswith(('.php', '.js', '.ts', '.py', '.java', '.go', '.html', '.css', '.sql')):
                 try:
                     full_code += f"\n--- START FILE: {file_content.path} ---\n"
                     full_code += file_content.decoded_content.decode("utf-8")
                     full_code += f"\n--- END FILE: {file_content.path} ---\n"
                     file_count += 1
-                except:
-                    pass
+                except: pass
 
-    # Store in Cache or RAM
-    result = create_context_cache_or_ram(full_code, f"GH_{repo_name.replace('/', '_')}")
+    # 2. Log Ingestion to Firestore
+    db.collection('users').document(user['uid']).collection('projects').add({
+        'type': 'github',
+        'repo_name': repo_name,
+        'timestamp': datetime.datetime.now()
+    })
+
+    result = create_smart_cache(full_code, f"GH_{repo_name}", user['uid'])
     return jsonify({"status": "success", **result})
 
-@app.route('/upload', methods=['POST'])
-def upload_repo():
-    """Standard Zip Upload Route."""
-    if 'file' not in request.files:
-        return jsonify({"error": "No file uploaded"}), 400
-    
-    file = request.files['file']
-    
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as temp_zip:
-        file.save(temp_zip.name)
-        full_code_text = extract_code_from_zip(temp_zip.name)
-        
-    result = create_context_cache_or_ram(full_code_text, "Uploaded_Zip_Repo")
-    return jsonify({"status": "success", **result})
-
-# --- ROUTES: AI ACTION ---
+# --- ROUTES: AI & REFACTORING ---
 
 @app.route('/refactor', methods=['POST'])
 def refactor_stream():
-    """Streams the AI response to the frontend."""
+    # 1. Verify User
+    user = verify_firebase_token(request)
+    if not user: return jsonify({"error": "Unauthorized"}), 401
+    
     data = request.json
     cache_name = data.get('cache_name')
     query = data.get('query')
-    
-    if not cache_name or not query:
-        return jsonify({"error": "Missing params"}), 400
+
+    # 2. Log Query to Firestore (Audit Trail)
+    db.collection('users').document(user['uid']).collection('history').add({
+        'query': query,
+        'timestamp': datetime.datetime.now(),
+        'cache_id': cache_name
+    })
 
     def generate():
-        time.sleep(0.5) # Prevent instant rate-limit hit
-        
-        # Check Fallback RAM
+        time.sleep(0.5)
+        # Check RAM or Cache
         if cache_name in fallback_memory:
             full_context = fallback_memory[cache_name]
-            # Construct a massive prompt manually
-            prompt = f"SYSTEM: You are a Legacy Code Expert.\nCONTEXT:\n{full_context}\n\nUSER REQUEST: {query}"
-            
-            response_stream = client.models.generate_content_stream(
-                model=MODEL_ID,
-                contents=prompt
-            )
+            prompt = f"SYSTEM: You are a Code Expert.\nCONTEXT:\n{full_context}\n\nUSER REQUEST: {query}"
+            stream = client.models.generate_content_stream(model=MODEL_ID, contents=prompt)
         else:
-            # Use Real Google Cache
-            try:
-                response_stream = client.models.generate_content_stream(
-                    model=MODEL_ID,
-                    contents=query,
-                    config=types.GenerateContentConfig(cached_content=cache_name)
-                )
-            except Exception as e:
-                yield f"data: Error with Google Cache: {str(e)}\n\n"
-                return
+            stream = client.models.generate_content_stream(
+                model=MODEL_ID, 
+                contents=query,
+                config=types.GenerateContentConfig(cached_content=cache_name)
+            )
 
-        # Stream Logic
-        for chunk in response_stream:
+        for chunk in stream:
             if chunk.text:
                 yield f"data: {chunk.text}\n\n"
 
@@ -273,36 +259,32 @@ def refactor_stream():
 
 @app.route('/github/create_pr', methods=['POST'])
 def create_pr():
-    """The 'Agent' that creates a real PR on GitHub."""
+    # 1. Verify User
+    user = verify_firebase_token(request)
+    if not user: return jsonify({"error": "Unauthorized"}), 401
+
     data = request.json
-    token = data.get('token')
+    gh_token = data.get('token')
     repo_name = data.get('repo_name')
     query = data.get('query')
     cache_name = data.get('cache_name')
     
-    # 1. Ask Gemini for the Git Plan (Strict JSON)
+    # AI Prompt for PR Plan
     prompt = f"""
-    Based on this request: "{query}"
-    
-    Generate a JSON plan to fix the code.
-    RULES:
-    1. Output ONLY valid JSON. No markdown.
-    2. Branch name must be unique/descriptive.
-    3. Include complete file content for modified files.
-    
-    JSON STRUCTURE:
+    Request: "{query}"
+    Generate a JSON plan for a GitHub Pull Request.
+    OUTPUT VALID JSON ONLY. NO MARKDOWN.
+    Structure:
     {{
-        "branch_name": "fix/modernize-auth",
-        "pr_title": "Refactor: Security Update",
-        "pr_body": "Updated login.php to use PDO...",
-        "files": [
-            {{ "path": "src/login.php", "content": "<?php ...full code..." }}
-        ]
+        "branch_name": "refactor/fix-issue",
+        "pr_title": "Fix: Description",
+        "pr_body": "Details...",
+        "files": [ {{ "path": "file.ext", "content": "full code" }} ]
     }}
     """
     
     try:
-        # Fetch the Plan (from RAM or Cache)
+        # Get AI Plan
         if cache_name in fallback_memory:
             full_context = fallback_memory[cache_name]
             final_prompt = f"CONTEXT:\n{full_context}\n\n{prompt}"
@@ -316,40 +298,20 @@ def create_pr():
             
         plan = clean_gemini_json(resp.text)
         
-        # 2. Execute Git Operations
-        g = Github(token)
+        # Execute GitHub API
+        g = Github(gh_token)
         repo = g.get_repo(repo_name)
-        
-        # Get Source SHA
         sb = repo.get_branch(repo.default_branch)
-        
-        # Create Branch
-        # Add timestamp to ensure uniqueness
         branch_ref = f"{plan['branch_name']}-{int(time.time())}"
         repo.create_git_ref(ref=f"refs/heads/{branch_ref}", sha=sb.commit.sha)
         
-        # Commit Files
         for f in plan['files']:
             try:
-                # Update existing
                 contents = repo.get_contents(f['path'], ref=branch_ref)
-                repo.update_file(
-                    contents.path, 
-                    f"Refactor {f['path']}", 
-                    f['content'], 
-                    contents.sha, 
-                    branch=branch_ref
-                )
+                repo.update_file(contents.path, f"Fix {f['path']}", f['content'], contents.sha, branch=branch_ref)
             except:
-                # Create new
-                repo.create_file(
-                    f['path'], 
-                    f"Create {f['path']}", 
-                    f['content'], 
-                    branch=branch_ref
-                )
+                repo.create_file(f['path'], f"Create {f['path']}", f['content'], branch=branch_ref)
         
-        # Create Pull Request
         pr = repo.create_pull(
             title=plan['pr_title'],
             body=plan['pr_body'],
@@ -357,10 +319,49 @@ def create_pr():
             base=repo.default_branch
         )
         
+        # Log Success to Firestore
+        db.collection('users').document(user['uid']).collection('prs').add({
+            'repo': repo_name,
+            'pr_url': pr.html_url,
+            'timestamp': datetime.datetime.now()
+        })
+        
         return jsonify({"status": "success", "pr_url": pr.html_url})
         
     except Exception as e:
-        print(e)
+        return jsonify({"error": str(e)}), 500
+
+# --- GITHUB OAUTH (Public Routes) ---
+
+@app.route('/login/github')
+def login_github():
+    return redirect(f"https://github.com/login/oauth/authorize?client_id={GH_CLIENT_ID}&scope=repo")
+
+@app.route('/github/callback')
+def github_callback():
+    code = request.args.get('code')
+    token_resp = requests.post(
+        "https://github.com/login/oauth/access_token",
+        headers={"Accept": "application/json"},
+        data={"client_id": GH_CLIENT_ID, "client_secret": GH_CLIENT_SECRET, "code": code}
+    )
+    access_token = token_resp.json().get("access_token")
+    return redirect(f"http://localhost:3000?gh_token={access_token}")
+
+@app.route('/github/repos', methods=['POST'])
+def list_repos():
+    # Note: Fetching repos uses the GH Token, not Firebase token necessarily,
+    # but we could add verify_firebase_token here if we wanted strict locking.
+    token = request.json.get('token')
+    if not token: return jsonify({"error": "Unauthorized"}), 401
+    g = Github(token)
+    try:
+        repos = []
+        for repo in g.get_user().get_repos(sort="pushed", direction="desc"):
+            if len(repos) >= 15: break
+            repos.append({"id": repo.id, "name": repo.full_name})
+        return jsonify(repos)
+    except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
