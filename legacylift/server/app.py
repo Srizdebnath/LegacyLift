@@ -162,11 +162,38 @@ def upload_repo():
         # We continue even if storage fails for the hackathon demo
     
     # 3. Process Logic
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as temp_zip:
-        file.save(temp_zip.name)
-        full_code = extract_code_from_zip(temp_zip.name)
-        
+    full_code = ""
+    temp_path = ""
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as temp_zip:
+            file.save(temp_zip.name)
+            temp_path = temp_zip.name
+            full_code = extract_code_from_zip(temp_zip.name)
+    except Exception as e:
+        return jsonify({"error": f"Extraction Failed: {str(e)}"}), 500
+    finally:
+        # Cleanup temp file immediately to free disk space
+        if temp_path and os.path.exists(temp_path):
+            os.remove(temp_path)
+
+    # [CRITICAL MEMORY SAFETY FOR RENDER FREE TIER]
+    # Render Free Tier has 512MB RAM. Large strings will cause OOM Kill.
+    # Limit: ~1,000,000 characters (approx 1MB text / 250k tokens)
+    MAX_CHARS = 1000000 
+    
+    if len(full_code) > MAX_CHARS:
+        print(f"WARNING: Repo size {len(full_code)} chars. Truncating to avoid Memory Crash.")
+        full_code = full_code[:MAX_CHARS] + "\n\n... [SYSTEM: CODE TRUNCATED FOR MEMORY SAFETY] ..."
+
+    # 4. Create Cache
     result = create_smart_cache(full_code, "Zip_Upload", user['uid'])
+    
+    # 5. Force Garbage Collection
+    # This is vital for Free Tier to release the huge string from RAM immediately
+    del full_code
+    import gc
+    gc.collect()
+
     return jsonify({"status": "success", **result})
 
 @app.route('/github/ingest', methods=['POST'])
