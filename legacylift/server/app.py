@@ -366,5 +366,60 @@ def list_repos():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
+# --- DASHBOARD ROUTE ---
+
+@app.route('/dashboard', methods=['GET'])
+def get_dashboard_data():
+    # 1. Verify User
+    user = verify_firebase_token(request)
+    if not user: return jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        uid = user['uid']
+        data = {
+            "stats": {
+                "total_refactors": 0,
+                "total_prs": 0,
+                "total_tokens": 0
+            },
+            "activity_feed": []
+        }
+
+        # Fetch Refactor History
+        history_ref = db.collection('users').document(uid).collection('history').order_by('timestamp', direction=firestore.Query.DESCENDING).limit(10).stream()
+        for doc in history_ref:
+            d = doc.to_dict()
+            data["activity_feed"].append({
+                "type": "refactor",
+                "title": "Code Refactoring",
+                "desc": d.get('query', '')[:50] + "...",
+                "timestamp": d.get('timestamp').isoformat() if d.get('timestamp') else None,
+                "details": d.get('cache_id')
+            })
+            data["stats"]["total_refactors"] += 1
+
+        # Fetch PRs
+        prs_ref = db.collection('users').document(uid).collection('prs').order_by('timestamp', direction=firestore.Query.DESCENDING).stream()
+        for doc in prs_ref:
+            d = doc.to_dict()
+            data["activity_feed"].append({
+                "type": "pr",
+                "title": "Pull Request Created",
+                "desc": f"Repo: {d.get('repo')}",
+                "link": d.get('pr_url'),
+                "timestamp": d.get('timestamp').isoformat() if d.get('timestamp') else None
+            })
+            data["stats"]["total_prs"] += 1
+
+        # Sort combined feed by timestamp
+        data["activity_feed"].sort(key=lambda x: x['timestamp'] or "", reverse=True)
+        
+        return jsonify(data)
+        
+    except Exception as e:
+        print(f"Dashboard Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == '__main__':
     app.run(port=5000, debug=True)
