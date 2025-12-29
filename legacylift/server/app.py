@@ -346,7 +346,9 @@ def github_callback():
         data={"client_id": GH_CLIENT_ID, "client_secret": GH_CLIENT_SECRET, "code": code}
     )
     access_token = token_resp.json().get("access_token")
-    return redirect(f"http://localhost:3000?gh_token={access_token}")
+    FRONTEND_URL = "https://legacylift-eight.vercel.app/" 
+    return redirect(f"{FRONTEND_URL}?gh_token={access_token}")
+    
 
 @app.route('/github/repos', methods=['POST'])
 def list_repos():
