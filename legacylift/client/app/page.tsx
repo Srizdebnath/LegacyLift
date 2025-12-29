@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { auth, googleProvider } from '../lib/firebase';
 import { signInWithPopup, signOut, onAuthStateChanged, User } from 'firebase/auth';
@@ -14,7 +14,8 @@ import {
 // --- PRODUCTION CONFIG ---
 const API_BASE = 'https://legacylift-backend.onrender.com';
 
-export default function Home() {
+// --- MAIN LOGIC COMPONENT (Not Exported Default) ---
+function HomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -221,8 +222,7 @@ export default function Home() {
     setIsCreatingPR(false);
   };
 
-  // --- RENDER ---
-
+  // --- LOADING STATE ---
   if (authLoading) return (
     <div className="min-h-screen bg-[#030014] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
@@ -670,4 +670,17 @@ export default function Home() {
       )}
     </main>
   );
+}
+
+// --- MAIN WRAPPER (To fix Build Error) ---
+export default function Page() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-[#030014] flex items-center justify-center">
+                <Loader2 className="w-8 h-8 text-purple-500 animate-spin" />
+            </div>
+        }>
+            <HomeContent />
+        </Suspense>
+    );
 }
