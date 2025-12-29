@@ -378,12 +378,12 @@ export default function Home() {
                     { 
                       name: "Shilajit Khan", 
                       role: "Backend Engineer", 
-                      img: "/team/shilajit.jpg" 
+                      img: "/team/shilajit.jpeg" 
                     },
                     { 
-                      name: "Subhojit Patra", 
+                      name: "Subhajit Patra", 
                       role: "Frontend Engineer", 
-                      img: "/team/subhojit.jpg" 
+                      img: "/team/subhojit.jpeg" 
                     }
                   ].map((member, i) => (
                      <div key={i} className="flex flex-col items-center group relative">
