@@ -11,6 +11,9 @@ import {
   Loader2, LogIn, LogOut, Lock, Database, Network 
 } from 'lucide-react';
 
+// --- PRODUCTION CONFIG ---
+const API_BASE = 'https://legacylift-backend.onrender.com';
+
 export default function Home() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -91,7 +94,7 @@ export default function Home() {
   // --- HANDLERS ---
   const fetchRepos = async (token: string) => {
     try {
-      const res = await fetch('http://localhost:5000/github/repos', {
+      const res = await fetch(`${API_BASE}/github/repos`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token })
@@ -112,7 +115,7 @@ export default function Home() {
     formData.append('file', e.target.files[0]);
 
     try {
-      const res = await authenticatedFetch('http://localhost:5000/upload', { 
+      const res = await authenticatedFetch(`${API_BASE}/upload`, { 
         method: 'POST', 
         body: formData 
       });
@@ -137,7 +140,7 @@ export default function Home() {
     setStatus(`Cloning ${selectedRepo} & Caching Context...`);
 
     try {
-      const res = await authenticatedFetch('http://localhost:5000/github/ingest', {
+      const res = await authenticatedFetch(`${API_BASE}/github/ingest`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: ghToken, repo_name: selectedRepo })
@@ -165,7 +168,7 @@ export default function Home() {
     
     try {
       const token = await user?.getIdToken();
-      const response = await fetch('http://localhost:5000/refactor', {
+      const response = await fetch(`${API_BASE}/refactor`, {
         method: 'POST',
         headers: { 
             'Content-Type': 'application/json',
@@ -200,7 +203,7 @@ export default function Home() {
     setIsCreatingPR(true);
     
     try {
-      const res = await authenticatedFetch('http://localhost:5000/github/create_pr', {
+      const res = await authenticatedFetch(`${API_BASE}/github/create_pr`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -387,30 +390,19 @@ export default function Home() {
                     }
                   ].map((member, i) => (
                      <div key={i} className="flex flex-col items-center group relative">
-                        
-                        {/* Glowing Background Effect */}
-                        <div className="absolute top-0 w-32 h-32 bg-purple-600/20 rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
-                        
                         {/* Image Container */}
                         <div className="w-28 h-28 rounded-full p-1 bg-gradient-to-br from-white/10 to-transparent border border-white/10 group-hover:border-purple-500/50 group-hover:scale-105 transition-all duration-500 mb-6 relative z-10 overflow-hidden shadow-2xl">
                            <div className="w-full h-full rounded-full overflow-hidden bg-black/50 relative">
-                              {/* The Actual Image */}
                               <img 
                                 src={member.img} 
                                 alt={member.name}
-                                className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-all duration-500 group-hover:scale-110"
+                                className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-all duration-500"
                                 onError={(e) => {
-                                  // Fallback if image not found
                                   (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${member.name}&background=random`;
                                 }}
                               />
-                              
-                              {/* Glare Effect */}
-                              <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
                            </div>
                         </div>
-
-                        {/* Text Info */}
                         <div className="text-center relative z-10">
                             <h4 className="font-bold text-white text-xl tracking-tight mb-1 group-hover:text-purple-300 transition-colors">
                               {member.name}
@@ -458,7 +450,7 @@ export default function Home() {
                   </button>
                   <button 
                     onClick={() => {
-                        if(!ghToken) window.location.href = 'http://localhost:5000/login/github';
+                        if(!ghToken) window.location.href = `${API_BASE}/login/github`;
                         else setMode('github');
                     }}
                     className={`px-8 py-3 rounded-full text-sm font-semibold transition-all duration-300 ${mode === 'github' ? 'bg-purple-600 text-white shadow-lg' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
