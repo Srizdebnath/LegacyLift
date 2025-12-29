@@ -93,7 +93,7 @@ export default function Home() {
               <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
               <span>System Online</span>
             </div>
-            <span>v2.5 Enterprise</span>
+            <span>v1.0 Enterprise</span>
           </div>
         </div>
       </nav>
