@@ -1,167 +1,150 @@
-# LegacyLift - Enterprise AI Legacy Code Modernizer
 
-LegacyLift is an autonomous AI Architect designed to ingest, analyze, and modernize legacy codebases at scale. Leveraging **Google Gemini 2.5 Flash** with massive context caching (1M+ tokens), it understands entire repositories to automatically generate Pull Requests for refactoring, security patches, and technology migrations.
+<div align="center">
+  <h1>🚀 LegacyLift</h1>
+  <h3><i>"Transforming Legacy Code into Modern Masterpieces"</i></h3>
+  
+  <p>
+    Built for <strong>GDGoC GCELT TECHSPRINT Hackathon</strong> by Team <strong>Khasta Kochuri</strong>
+  </p>
 
-![LegacyLift Banner](https://img.shields.io/badge/Status-Beta-blue?style=for-the-badge) ![Gemini](https://img.shields.io/badge/Powered%20By-Gemini%202.5-purple?style=for-the-badge) 
+  <p>
+    <a href="https://legacylift-eight.vercel.app/">
+      <img src="https://img.shields.io/badge/Live_Demo-Visit_Site-2ea44f?style=for-the-badge&logo=vercel" alt="Live Demo" />
+    </a>
+    <a href="https://youtu.be/e9O3huM-emw?feature=shared">
+      <img src="https://img.shields.io/badge/Demo_Video-Watch_on_YouTube-FF0000?style=for-the-badge&logo=youtube" alt="Demo Video" />
+    </a>
+    <a href="https://legacylift-backend.onrender.com/">
+      <img src="https://img.shields.io/badge/Backend_API-Active-blue?style=for-the-badge&logo=python" alt="Backend API" />
+    </a>
+  </p>
+  
+  <p>
+    <img src="https://img.shields.io/badge/Powered%20By-Gemini%202.5%20Flash-purple?style=flat-square" />
+    <img src="https://img.shields.io/badge/Stack-Next.js_15_|_FastAPI-black?style=flat-square" />
+  </p>
+</div>
 
 ---
 
-## 🚀 Key Features
+## � The Problem
+Legacy code is the silent killer of innovation. Companies spend **42% of developer time** maintaining "spaghetti code" that no one understands. Migrating it is risky, slow, and expensive.
+
+## 🛠️ The Solution: LegacyLift
+**LegacyLift** is an **Autonomous AI Architect** that ingests entire repositories, understands the logic, and **modernizes them automatically**. 
+
+Unlike simple autocomplete tools, LegacyLift understands the *entire context* of a project (1M+ tokens) to perform system-wide refactors, security patches, and language migrations—all while generating ready-to-merge Pull Requests.
+
+---
+
+## 🌟 Key Features
 
 ### 🧠 Deep Context Awareness
-- **Massive Ingestion**: Supports ingesting complete repositories via Zip upload or direct GitHub cloning.
-- **Smart Caching**: Intelligently switches between RAM (for small files) and Google GenAI Context Cache (for large repos >30k tokens) to optimize speed and cost.
-- **Polyglot Support**: Native understanding of Java, Python, PHP, JavaScript, TypeScript, Go, C++, and SQL.
+- **Full-Repo Ingestion**: Drag & Drop a `.zip` or just paste a GitHub URL. We ingest it all.
+- **Smart Caching**: Intelligently switches between RAM (fast access) and **Google GenAI Context Cache** (massive scale) to handle million-line codebases instantly.
+- **Polyglot Master**: Fluent in Java, Python, PHP, JavaScript, Go, C++, and COBOL.
 
 ### ⚡ Autonomous Refactoring Agent
-- **Streaming Architect**: Real-time logic transformation suggestions streamed directly to the frontend.
-- **Auto-PR Agent**: Automatically creates a branch, pushes code, and opens a Pull Request on GitHub with a comprehensive description.
-- **Audit Trail**: Every refactor and PR is logged in the `Mission Control` dashboard for compliance and tracking.
+- **Streaming Architect**: Watch as the AI reasons through architectural changes in real-time.
+- **Auto-PR Agent**: It doesn't just suggest code; it **writes it, branches it, and opens a PR** on GitHub for you.
+- **Audit Trail**: Every action is logged in Mission Control for complete compliance.
 
 ### 🕹 Mission Control Dashboard
-- **Activity Feed**: Live feed of all refactoring jobs and pull requests across the team.
-- **Real-time Stats**: Track total refactors, PRs created, and system operational status.
-- **Multi-Source Management**: Switch seamlessly between local archives and remote GitHub repositories.
+- **Live Activity Feed**: Monitor refinements as they happen.
+- **Multi-Source**: seamlessly manage local uploads and remote repositories.
 
 ---
 
 ## 🏗 System Architecture
 
-The system follows a transparent **Ingest -> Reason -> Execute** pipeline:
+We built a transparent **Ingest -> Reason -> Execute** pipeline:
 
-1.  **Ingestion Layer**:
-    -   **Local**: Encrypted Zip uploads to Firebase Cloud Storage.
-    -   **Remote**: PyGithub integration to clone public/private repositories.
-2.  **Processing Layer**:
-    -   Backend recursively flattens the codebase.
-    -   Content is tokenized and loaded into **Gemini 2.5 Flash**.
-3.  **Application Layer (Next.js)**:
-    -   User issues natural language commands (e.g., *"Convert all raw SQL queries in user.php to PDO prepared statements"*).
+1.  **Ingestion & Flattening**: 
+    -   Repositories are cloned/uploaded and flattened into a context-optimized format.
+2.  **Cognitive Layer (Gemini 2.5)**: 
+    -   The flattened codebase is cached with a 1M+ token context window, allowing the AI to "hold" the entire system in memory.
+3.  **Application Layer (Next.js 16)**: 
+    -   A beautiful, high-performance UI where users interact via natural language (e.g., *"Migrate this Flask app to FastAPI"*).
 4.  **Execution Layer**:
-    -   **Refactor**: AI streams the diff/solution back to the UI.
-    -   **Action**: AI interacts with the GitHub API to commit changes and raise a PR.
+    -   **Refactor**: AI streams diffs to the user.
+    -   **Action**: PyGithub integration executes the git commands to finalize the work.
 
 ---
 
-## 🛠 Technology Stack
+## 🛠 Tech Stack
 
 ### Client (Frontend)
--   **Framework**: Next.js 16 (App Router, React 19)
--   **Styling**: Tailwind CSS v4, Lucide React (Icons)
--   **Auth**: Firebase Authentication (Google & GitHub OOP)
--   **State**: React Hooks & Suspense
--   **Deployment**: Vercel (Recommended)
+-   **Framework**: Next.js 16 (App Router)
+-   **Styling**: Tailwind CSS v4, Framer Motion (Animations), Lucide React
+-   **Auth**: Firebase Authentication
+-   **Deployment**: Vercel
 
 ### Server (Backend)
--   **Runtime**: Python 3.10+
--   **Framework**: Flask, Gunicorn (Production WSGI)
--   **AI Engine**: Google GenAI SDK (Gemini 2.5 Flash)
--   **Database**: Firebase Firestore (NoSQL for Logs/Stats)
--   **Storage**: Firebase Cloud Storage (Archives)
--   **Integration**: PyGithub, Dotenv
+-   **Runtime**: Python 3.12+
+-   **Core**: Flask
+-   **AI**: Google GenAI SDK (Gemini 2.5 Flash)
+-   **Database**: Firebase Firestore (NoSQL)
+-   **Storage**: Firebase Cloud Storage
+-   **Hosting**: Render
 
 ---
 
-## ⚙️ Installation & Configuration
+## 🚀 Getting Started
 
 ### Prerequisites
--   Node.js v18+ & npm
--   Python v3.10+
--   Firebase Project (Auth, Firestore, Storage enabled)
--   Google Cloud Project (Gemini API enabled)
--   GitHub OAuth App
+- Node.js v18+
+- Python 3.12+
+- Firebase & Google Cloud API Keys
 
-### 1. Repository Setup
-```bash
-git clone https://github.com/yourusername/LegacyLift.git
-cd LegacyLift
-```
+### Quick Setup
 
-### 2. Backend (Flask)
-```bash
-cd legacylift/server
+1.  **Clone the Repo**
+    ```bash
+    git clone https://github.com/Srizdebnath/LegacyLift.git
+    cd LegacyLift
+    ```
 
-# Create Virtual Env
-python -m venv venv
-# Windows: .\venv\Scripts\activate
-# Mac/Linux: source venv/bin/activate
+2.  **Backend Setup**
+    ```bash
+    cd legacylift/server
+    python -m venv venv
+    venv\Scripts\activate
+    pip install -r requirements.txt
+    
+    # Configure .env with FLASK_SECRET, GEMINI_API_KEY, GITHUB_CLIENT_ID...
+    python app.py
+    ```
 
-# Install Dependencies
-pip install -r requirements.txt
-```
-
-**Configuration**: Create `legacylift/server/.env`:
-```env
-FLASK_SECRET=your_super_secret_key
-GEMINI_API_KEY=your_google_gemini_key
-GITHUB_CLIENT_ID=your_github_client_id
-GITHUB_CLIENT_SECRET=your_github_client_secret
-```
-
-**Firebase**: Place your `serviceAccountKey.json` from Firebase Console in `legacylift/server/`.
-
-**Run Server**:
-```bash
-python app.py
-# Production: gunicorn app:app
-```
-
-### 3. Client (Next.js)
-```bash
-cd ../client
-npm install
-```
-
-**Configuration**: Create `legacylift/client/.env.local`:
-```env
-NEXT_PUBLIC_FIREBASE_API_KEY=...
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=...
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=...
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=...
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
-NEXT_PUBLIC_FIREBASE_APP_ID=...
-```
-
-**Environment Config**: The app automatically switches API URLs based on environment:
--   **Development**: `http://localhost:5000`
--   **Production**: `https://legacylift-backend.onrender.com` (Configurable in `lib/config.ts`)
-
-**Run Client**:
-```bash
-npm run dev
-```
+3.  **Frontend Setup**
+    ```bash
+    cd ../client
+    npm install
+    npm run dev
+    ```
 
 ---
 
-## 📡 API Documentation
+## 📡 API Endpoints
 
-### Auth & User
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| **GET** | `/dashboard` | Returns user stats (refactors, PRs) and activity feed. |
-| **GET** | `/login/github` | Initiates GitHub OAuth flow. |
-
-### Ingestion
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| **POST** | `/upload` | Uploads .zip, extracts code, and creates Gemini Cache. |
-| **POST** | `/github/ingest` | Clones a GitHub repo and creates Gemini Cache. |
-| **POST** | `/github/repos` | Lists recent repositories for the authenticated user. |
-
-### AI Actions
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| **POST** | `/refactor` | Streams architectural changes based on natural language query. |
-| **POST** | `/github/create_pr` | Generates code, creates a branch, commits, and opens a PR. |
-
-**Security Note**: All protected endpoints require `Authorization: Bearer <firebase_id_token>` header.
+| **POST** | `/upload` | Ingests `.zip` archives. |
+| **POST** | `/github/ingest` | Clones & caches GitHub repos. |
+| **POST** | `/refactor` | Streams AI architectural plans. |
+| **POST** | `/github/create_pr` | **The Magic Button** - creates the PR. |
 
 ---
 
 ## 👥 Team Khasta Kochuri
+
+Made with ❤️ and code by:
+
 -   **Sriz Debnath** - AI System & Automation
 -   **Shilajit Khan** - Backend Engineering
 -   **Subhajit Patra** - Frontend Engineering
 
 ---
 
+<div align="center">
+  <i>"Legacy code is just code that works. We make it work better."</i>
+</div>
